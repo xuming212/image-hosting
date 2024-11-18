@@ -46,8 +46,8 @@
             size: file.size
         });
 
-        // 3. 构建上传URL
-        const uploadUrl = `https://mooc-upload-ans.chaoxing.com/ueditorupload/upload-image?uid=&enc2=${encMatch[1]}&t=${timeMatch[1]}&encode=utf-8`;
+        // 3. 填写 Cloudflare 上传 URL
+        const uploadUrl = `https://chaoxing-upload.a212883851.workers.dev/`;  // 这里填写你在 Cloudflare 的上传接口地址
         console.log('4. 上传URL:', uploadUrl);
 
         // 4. 使用 FormData
