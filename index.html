@@ -53,10 +53,8 @@
     <script>
         // 获取凭证
         async function getCredentials() {
-            // 直接使用当前时间戳和固定的 enc
             const currentTime = Date.now()
-            // 这个值从超星页面获取，每天更新一次
-            const uploadEnc = '3a8d2074fa23f3a01febe8e68ef4d698'
+            const uploadEnc = 'd7fc6d00bb7181dbde86ca31f37f1a43'
             
             console.log("使用凭证:", {currentTime, uploadEnc})
             return { currentTime, uploadEnc }
@@ -80,12 +78,21 @@
                     method: 'POST',
                     body: form,
                     headers: {
-                        'Accept': 'application/json',
-                        'Origin': 'https://mooc1.chaoxing.com',
-                        'Referer': 'https://mooc1.chaoxing.com/mooc-ans/coursestar'
+                        'accept': '*/*',
+                        'accept-language': 'zh-CN,zh;q=0.9,en;q=0.8',
+                        'cache-control': 'no-cache',
+                        'pragma': 'no-cache',
+                        'sec-ch-ua': '"Chromium";v="130", "Microsoft Edge";v="130", "Not?A_Brand";v="99"',
+                        'sec-ch-ua-mobile': '?0',
+                        'sec-ch-ua-platform': '"Windows"',
+                        'sec-fetch-dest': 'empty',
+                        'sec-fetch-mode': 'cors',
+                        'sec-fetch-site': 'same-site'
                     },
-                    credentials: 'include',
-                    mode: 'cors'
+                    referrer: 'https://mooc1.chaoxing.com/mooc-ans/coursestar',
+                    referrerPolicy: 'unsafe-url',
+                    mode: 'cors',
+                    credentials: 'omit'
                 })
                 
                 const result = await response.json()
