@@ -1,225 +1,123 @@
 <!DOCTYPE html>
-<html>
+<html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="referrer" content="no-referrer">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>超星图床</title>
     <style>
         body {
             max-width: 800px;
             margin: 20px auto;
             padding: 0 20px;
-            font-family: system-ui;
+            font-family: system-ui, -apple-system, sans-serif;
         }
-        .upload-box {
+        
+        .upload-area {
             border: 2px dashed #ccc;
             padding: 20px;
             text-align: center;
-            margin-bottom: 20px;
+            margin: 20px 0;
             cursor: pointer;
-            transition: all 0.3s ease;
         }
-        .upload-box.loading {
-            opacity: 0.5;
-            pointer-events: none;
-            border-color: #666;
+        
+        #fileInput {
+            display: none;
         }
+        
         .url-box {
             margin: 10px 0;
         }
+        
         .url-box input {
             width: 100%;
             padding: 8px;
-            box-sizing: border-box;
+            border: 1px solid #ddd;
         }
-        .preview {
+        
+        .preview-image {
             max-width: 100%;
             margin: 10px 0;
         }
-        #history {
-            margin-top: 20px;
-        }
-        .history-item {
-            margin: 10px 0;
-            padding: 10px;
-            border: 1px solid #eee;
-        }
-        .loading-text {
-            color: #666;
-            font-style: italic;
-        }
-        .error-text {
+        
+        .error {
             color: red;
-            font-weight: bold;
         }
     </style>
 </head>
 <body>
-    <h2>超星图床</h2>
+    <h1>超星图床</h1>
     
-    <div class="upload-box" id="uploadBox">
-        点击或拖拽图片到这里上传
-        <input type="file" id="fileInput" accept="image/*" style="display: none">
+    <div class="upload-area" id="uploadArea">
+        <p>点击或拖拽图片到这里上传</p>
+        <input type="file" id="fileInput" accept="image/*">
     </div>
-    <div id="result"></div>
-    <div id="history"></div>
+    
+    <div id="resultArea"></div>
 
     <script>
-        // Worker URL 配置
-        const WORKER_URL = 'https://chaoxing-upload.a212883851.workers.dev'
-
-        // 检查文件
-        function checkFile(file) {
-            // 检查文件类型
-            const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
-            if (!allowedTypes.includes(file.type)) {
-                throw new Error('只支持 JPG、PNG、GIF、WEBP 格式的图片')
-            }
-            
-            // 检查文件大小 (10MB)
-            const maxSize = 10 * 1024 * 1024
-            if (file.size > maxSize) {
-                throw new Error('图片大小不能超过10MB')
-            }
-            
-            return true
-        }
-
-        // 上传图片
-        async function uploadImage(file) {
-            try {
-                const form = new FormData()
-                form.append('upfile', file, file.name)
+        const config = {
+            workerUrl: 'https://chaoxing-upload.a212883851.workers.dev'
+        };
+        
+        class ImageUploader {
+            constructor() {
+                this.uploadArea = document.getElementById('uploadArea');
+                this.fileInput = document.getElementById('fileInput');
+                this.resultArea = document.getElementById('resultArea');
                 
-                console.log("开始上传...", {
-                    fileSize: file.size,
-                    fileType: file.type,
-                    fileName: file.name
-                })
+                this.initEvents();
+            }
+
+            initEvents() {
+                this.uploadArea.onclick = () => this.fileInput.click();
+                this.fileInput.onchange = e => this.handleFiles(e.target.files);
                 
-                const response = await fetch(WORKER_URL, {
-                    method: 'POST',
-                    body: form,
-                    headers: {
-                        'Accept': '*/*'
+                // 拖拽上传
+                this.uploadArea.ondragover = e => {
+                    e.preventDefault();
+                };
+                this.uploadArea.ondrop = e => {
+                    e.preventDefault();
+                    this.handleFiles(e.dataTransfer.files);
+                };
+            }
+
+            async handleFiles(files) {
+                const file = files[0];
+                if (!file) return;
+
+                try {
+                    if (!file.type.startsWith('image/')) {
+                        throw new Error('只支持图片文件');
                     }
-                })
-                
-                console.log("Worker响应状态:", response.status)
-                console.log("Worker响应头:", Object.fromEntries(response.headers))
-                
-                const result = await response.json()
-                console.log("Worker响应体:", result)
-                
-                if (!response.ok) {
-                    throw new Error(`HTTP错误: ${response.status} ${response.statusText}`)
+
+                    this.resultArea.innerHTML = '上传中...';
+                    const formData = new FormData();
+                    formData.append('upfile', file);
+
+                    const response = await fetch(config.workerUrl, {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    const result = await response.json();
+                    if (!result.success) {
+                        throw new Error(result.message);
+                    }
+
+                    this.resultArea.innerHTML = `
+                        <img src="${result.url}" class="preview-image">
+                        <div class="url-box">
+                            <input type="text" value="${result.url}" readonly onclick="this.select()">
+                        </div>
+                    `;
+                } catch (error) {
+                    this.resultArea.innerHTML = `<div class="error">${error.message}</div>`;
                 }
-                
-                if (result.state === 'SUCCESS' && result.url) {
-                    return result.url
-                } else {
-                    throw new Error(`上传失败: ${result.error || '未知错误'}\n详情: ${result.detail || '无'}`)
-                }
-            } catch (err) {
-                console.error("上传失败:", err)
-                if (err instanceof TypeError) {
-                    console.error("网络错误:", err.message)
-                }
-                throw err
             }
         }
 
-        // 处理上传
-        async function handleUpload(file) {
-            if (!file) return
-            
-            const result = document.getElementById('result')
-            const uploadBox = document.getElementById('uploadBox')
-            
-            try {
-                // 检查文件
-                checkFile(file)
-                
-                // 显示加载状态
-                result.innerHTML = '<div class="loading-text">上传中...</div>'
-                uploadBox.classList.add('loading')
-                
-                const url = await uploadImage(file)
-                result.innerHTML = `
-                    <img src="${url}" class="preview">
-                    <div class="url-box">
-                        <input value="${url}" readonly onclick="this.select()">
-                    </div>
-                `
-                saveHistory(url)
-            } catch (err) {
-                result.innerHTML = `<div class="error-text">❌ ${err.message}</div>`
-            } finally {
-                // 恢复上传框状态
-                uploadBox.classList.remove('loading')
-            }
-        }
-
-        // 保存历史记录
-        function saveHistory(url) {
-            const history = JSON.parse(localStorage.getItem('uploadHistory') || '[]')
-            history.unshift({
-                url,
-                time: new Date().toLocaleString()
-            })
-            localStorage.setItem('uploadHistory', JSON.stringify(history.slice(0, 10)))
-            showHistory()
-        }
-
-        // 显示历史记录
-        function showHistory() {
-            const history = JSON.parse(localStorage.getItem('uploadHistory') || '[]')
-            const html = history.map(item => `
-                <div class="history-item">
-                    <img src="${item.url}" class="preview">
-                    <div class="url-box">
-                        <input value="${item.url}" readonly onclick="this.select()">
-                    </div>
-                    <small>上传时间: ${item.time}</small>
-                </div>
-            `).join('')
-            document.getElementById('history').innerHTML = html
-        }
-
-        // 初始化上传事件
-        const uploadBox = document.getElementById('uploadBox')
-        const fileInput = document.getElementById('fileInput')
-
-        // 点击上传
-        uploadBox.onclick = () => fileInput.click()
-        fileInput.onchange = e => handleUpload(e.target.files[0])
-
-        // 拖拽上传
-        uploadBox.ondragover = e => {
-            e.preventDefault()
-            e.stopPropagation()
-            uploadBox.style.borderColor = '#000'
-        }
-        
-        uploadBox.ondragleave = e => {
-            e.preventDefault()
-            e.stopPropagation()
-            uploadBox.style.borderColor = '#ccc'
-        }
-        
-        uploadBox.ondrop = e => {
-            e.preventDefault()
-            e.stopPropagation()
-            uploadBox.style.borderColor = '#ccc'
-            
-            const file = e.dataTransfer.files[0]
-            if (file && file.type.startsWith('image/')) {
-                handleUpload(file)
-            }
-        }
-
-        // 显示历史记录
-        showHistory()
+        new ImageUploader();
     </script>
 </body>
-</html>
+</html> 
