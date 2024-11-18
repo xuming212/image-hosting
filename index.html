@@ -42,6 +42,15 @@
 </head>
 <body>
     <h2>超星图床</h2>
+    
+    <!-- 添加登录提示 -->
+    <div id="loginTip" style="display: none; margin-bottom: 20px; padding: 10px; background: #fff3cd; border: 1px solid #ffeeba;">
+        ⚠️ 请先<a href="https://mooc1.chaoxing.com/mooc-ans/coursestar" target="_blank">登录超星</a>，然后刷新此页面
+    </div>
+
+    <!-- 添加凭证获取器iframe -->
+    <iframe id="credentialsGetter" src="https://mooc1.chaoxing.com/mooc-ans/coursestar" style="display: none;"></iframe>
+    
     <div class="upload-box" id="uploadBox">
         点击或拖拽图片到这里上传
         <input type="file" id="fileInput" accept="image/*" style="display: none">
@@ -52,18 +61,38 @@
     <script>
         // 获取凭证
         async function getCredentials() {
-            const response = await fetch('https://mooc1.chaoxing.com/mooc-ans/coursestar', {
-                credentials: 'include'  // 添加凭证
+            return new Promise((resolve, reject) => {
+                const iframe = document.getElementById('credentialsGetter')
+                
+                // 设置超时
+                const timeout = setTimeout(() => {
+                    document.getElementById('loginTip').style.display = 'block'
+                    reject(new Error('获取凭证超时，请确保已登录超星'))
+                }, 5000)
+                
+                // 监听iframe消息
+                window.addEventListener('message', function(e) {
+                    if (e.origin === 'https://mooc1.chaoxing.com') {
+                        clearTimeout(timeout)
+                        if (e.data.currentTime && e.data.uploadEnc) {
+                            resolve(e.data)
+                        } else {
+                            reject(new Error('获取凭证失败'))
+                        }
+                    }
+                })
+                
+                // 注入脚本到iframe
+                iframe.onload = () => {
+                    try {
+                        iframe.contentWindow.postMessage({
+                            type: 'GET_CREDENTIALS'
+                        }, '*')
+                    } catch (err) {
+                        reject(new Error('获取凭证失败，请确保已登录超星'))
+                    }
+                }
             })
-            const html = await response.text()
-            const currentTime = html.match(/window\["currentTime"\] = "(\d+)"/)?.[1]
-            const uploadEnc = html.match(/window\["uploadEnc"\] = "([a-f0-9]+)"/)?.[1]
-            
-            if (!currentTime || !uploadEnc) {
-                throw new Error('获取上传凭证失败')
-            }
-            
-            return { currentTime, uploadEnc }
         }
 
         // 上传图片
@@ -81,7 +110,7 @@
                 const response = await fetch(uploadUrl, {
                     method: 'POST',
                     body: form,
-                    credentials: 'include'  // 添加凭证
+                    credentials: 'include'
                 })
                 
                 const result = await response.json()
@@ -90,10 +119,10 @@
                     throw new Error(result.msg || '上传失败')
                 }
                 
-                return result.url  // 直接返回超星返回的URL
+                return result.url
             } catch (err) {
                 console.error('上传失败:', err)
-                throw new Error(err.message || '网络错误，请重试')
+                throw err
             }
         }
 
@@ -179,6 +208,21 @@
 
         // 显示历史记录
         showHistory()
+    </script>
+
+    <!-- 添加凭证获取器脚本 -->
+    <script>
+        // 在超星页面中注入的脚本
+        if (window.location.hostname === 'mooc1.chaoxing.com') {
+            window.addEventListener('message', function(e) {
+                if (e.data.type === 'GET_CREDENTIALS') {
+                    window.parent.postMessage({
+                        currentTime: window.currentTime,
+                        uploadEnc: window.uploadEnc
+                    }, '*')
+                }
+            })
+        }
     </script>
 </body>
 </html>
