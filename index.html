@@ -54,12 +54,22 @@
         // 获取凭证
         async function getCredentials() {
             try {
-                const response = await fetch('https://mooc1.chaoxing.com/mooc-ans/coursestar')
+                // 使用 cors-anywhere 代理
+                const proxyUrl = 'https://cors-anywhere.herokuapp.com/'
+                const targetUrl = 'https://mooc1.chaoxing.com/mooc-ans/coursestar'
+                
+                const response = await fetch(proxyUrl + targetUrl, {
+                    headers: {
+                        'Origin': 'https://mooc1.chaoxing.com'
+                    }
+                })
                 const html = await response.text()
                 
                 // 从HTML中提取变量
                 const currentTime = html.match(/window\["currentTime"\] = "(\d+)"/)?.[1]
                 const uploadEnc = html.match(/window\["uploadEnc"\] = "([a-f0-9]+)"/)?.[1]
+                
+                console.log("提取的变量:", { currentTime, uploadEnc })
                 
                 if (!currentTime || !uploadEnc) {
                     throw new Error('获取凭证失败')
