@@ -43,11 +43,6 @@
 <body>
     <h2>超星图床</h2>
     
-    <!-- 添加登录提示 -->
-    <div id="loginTip" style="display: none; margin-bottom: 20px; padding: 10px; background: #fff3cd; border: 1px solid #ffeeba;">
-        ⚠️ 请先<a href="https://mooc1.chaoxing.com/mooc-ans/coursestar" target="_blank">登录超星</a>，然后刷新此页面
-    </div>
-
     <!-- 添加凭证获取器iframe -->
     <iframe id="credentialsGetter" src="https://mooc1.chaoxing.com/mooc-ans/coursestar" style="display: none;"></iframe>
     
@@ -64,32 +59,19 @@
             return new Promise((resolve, reject) => {
                 const iframe = document.getElementById('credentialsGetter')
                 
-                // 设置超时
-                const timeout = setTimeout(() => {
-                    document.getElementById('loginTip').style.display = 'block'
-                    reject(new Error('获取凭证超时，请确保已登录超星'))
-                }, 5000)
-                
-                // 监听iframe消息
-                window.addEventListener('message', function(e) {
-                    if (e.origin === 'https://mooc1.chaoxing.com') {
-                        clearTimeout(timeout)
-                        if (e.data.currentTime && e.data.uploadEnc) {
-                            resolve(e.data)
+                // 监听iframe加载完成
+                iframe.onload = () => {
+                    try {
+                        const currentTime = iframe.contentWindow.currentTime
+                        const uploadEnc = iframe.contentWindow.uploadEnc
+                        
+                        if (currentTime && uploadEnc) {
+                            resolve({ currentTime, uploadEnc })
                         } else {
                             reject(new Error('获取凭证失败'))
                         }
-                    }
-                })
-                
-                // 注入脚本到iframe
-                iframe.onload = () => {
-                    try {
-                        iframe.contentWindow.postMessage({
-                            type: 'GET_CREDENTIALS'
-                        }, '*')
                     } catch (err) {
-                        reject(new Error('获取凭证失败，请确保已登录超星'))
+                        reject(new Error('获取凭证失败'))
                     }
                 }
             })
@@ -208,21 +190,6 @@
 
         // 显示历史记录
         showHistory()
-    </script>
-
-    <!-- 添加凭证获取器脚本 -->
-    <script>
-        // 在超星页面中注入的脚本
-        if (window.location.hostname === 'mooc1.chaoxing.com') {
-            window.addEventListener('message', function(e) {
-                if (e.data.type === 'GET_CREDENTIALS') {
-                    window.parent.postMessage({
-                        currentTime: window.currentTime,
-                        uploadEnc: window.uploadEnc
-                    }, '*')
-                }
-            })
-        }
     </script>
 </body>
 </html>
