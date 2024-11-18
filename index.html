@@ -4,11 +4,45 @@
     <meta charset="UTF-8">
     <meta name="referrer" content="no-referrer">
     <title>超星图床</title>
-    <!-- 引入超星的 UEditor -->
+    <script src="https://cdn.bootcdn.net/ajax/libs/jquery/1.10.2/jquery.min.js"></script>
+    <script src="https://cdn.bootcdn.net/ajax/libs/webuploader/0.1.1/webuploader.min.js"></script>
+    <link href="https://cdn.bootcdn.net/ajax/libs/webuploader/0.1.1/webuploader.css" rel="stylesheet">
     <script src="https://mooc1.chaoxing.com/mooc-ans/js/editor20150812/ueditor.config.js?v=2023-0904-2027"></script>
     <script src="https://mooc1.chaoxing.com/mooc-ans/js/editor20150812/ueditor.all.min.js?v=2024-0105-1810"></script>
     <style>
-        /* 原有样式保持不变 */
+        body {
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 0 20px;
+            font-family: system-ui;
+        }
+        .upload-box {
+            border: 2px dashed #ccc;
+            padding: 20px;
+            text-align: center;
+            margin-bottom: 20px;
+            cursor: pointer;
+        }
+        .url-box {
+            margin: 10px 0;
+        }
+        .url-box input {
+            width: 100%;
+            padding: 8px;
+            box-sizing: border-box;
+        }
+        .preview {
+            max-width: 100%;
+            margin: 10px 0;
+        }
+        #history {
+            margin-top: 20px;
+        }
+        .history-item {
+            margin: 10px 0;
+            padding: 10px;
+            border: 1px solid #eee;
+        }
     </style>
 </head>
 <body>
@@ -21,6 +55,66 @@
     <div id="history"></div>
 
     <script>
+        var uploader = WebUploader.create({
+            auto: true,
+            swf: 'https://cdn.bootcdn.net/ajax/libs/webuploader/0.1.1/Uploader.swf',
+            server: function() {
+                const currentTime = Date.now()
+                const uploadEnc = '36f786d'
+                return `https://mooc-upload-ans.chaoxing.com/ueditorupload/upload-image?uid=&enc2=${uploadEnc}&t=${currentTime}&encode=utf-8`
+            },
+            pick: '#filePicker',
+            accept: {
+                title: 'Images',
+                extensions: 'gif,jpg,jpeg,bmp,png',
+                mimeTypes: 'image/*'
+            }
+        })
+
+        uploader.on('uploadSuccess', function(file, response) {
+            if (response.url) {
+                const result = document.getElementById('result')
+                result.innerHTML = `
+                    <img src="${response.url}" class="preview">
+                    <div class="url-box">
+                        <input value="${response.url}" readonly onclick="this.select()">
+                    </div>
+                `
+                saveHistory(response.url)
+            }
+        })
+
+        uploader.on('uploadError', function(file) {
+            const result = document.getElementById('result')
+            result.innerHTML = '<div style="color: red;">❌ 上传失败</div>'
+        })
+
+        function saveHistory(url) {
+            const history = JSON.parse(localStorage.getItem('uploadHistory') || '[]')
+            history.unshift({
+                url,
+                time: new Date().toLocaleString()
+            })
+            localStorage.setItem('uploadHistory', JSON.stringify(history.slice(0, 10)))
+            showHistory()
+        }
+
+        function showHistory() {
+            const history = JSON.parse(localStorage.getItem('uploadHistory') || '[]')
+            const html = history.map(item => `
+                <div class="history-item">
+                    <img src="${item.url}" class="preview">
+                    <div class="url-box">
+                        <input value="${item.url}" readonly onclick="this.select()">
+                    </div>
+                    <small>上传时间: ${item.time}</small>
+                </div>
+            `).join('')
+            document.getElementById('history').innerHTML = html
+        }
+
+        showHistory()
+
         // 获取凭证
         async function getCredentials() {
             try {
@@ -77,8 +171,6 @@
                 xhr.send(form)
             })
         }
-
-        // 其他代码保持不变...
     </script>
 </body>
 </html>
