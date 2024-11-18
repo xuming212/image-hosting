@@ -99,7 +99,7 @@
                     formData.append('type', file.type);
                     formData.append('lastModifiedDate', `${new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' })} GMT+0800 (中国标准时间)`);
                     formData.append('size', file.size);
-                    formData.append('upfile', file, file.name);
+                    formData.append('file', file, file.name);
 
                     const response = await fetch(config.workerUrl, {
                         method: 'POST',
