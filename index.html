@@ -43,8 +43,6 @@
 <body>
     <h2>超星图床</h2>
     
-    <iframe id="credentialsGetter" style="display:none"></iframe>
-    
     <div class="upload-box" id="uploadBox">
         点击或拖拽图片到这里上传
         <input type="file" id="fileInput" accept="image/*" style="display: none">
@@ -53,72 +51,15 @@
     <div id="history"></div>
 
     <script>
-        // JSONP 工具函数
-        function jsonp(url) {
-            return new Promise((resolve, reject) => {
-                const callbackName = 'jsonp_' + Date.now()
-                window[callbackName] = (data) => {
-                    document.head.removeChild(script)
-                    delete window[callbackName]
-                    resolve(data)
-                }
-                
-                const script = document.createElement('script')
-                script.src = `${url}&callback=${callbackName}`
-                script.onerror = () => {
-                    document.head.removeChild(script)
-                    delete window[callbackName]
-                    reject(new Error('JSONP request failed'))
-                }
-                document.head.appendChild(script)
-            })
-        }
-
         // 获取凭证
         async function getCredentials() {
-            return new Promise((resolve, reject) => {
-                const iframe = document.getElementById('credentialsGetter')
-                
-                // 设置超时
-                const timeout = setTimeout(() => {
-                    reject(new Error('获取凭证超时'))
-                }, 5000)
-                
-                // 创建一个临时表单
-                const form = document.createElement('form')
-                form.method = 'POST'
-                form.action = 'https://mooc1.chaoxing.com/mooc-ans/coursestar'
-                form.target = 'credentialsGetter'
-                document.body.appendChild(form)
-                
-                // 监听 iframe 加载完成
-                iframe.onload = () => {
-                    clearTimeout(timeout)
-                    try {
-                        // 尝试从 iframe 内容中提取凭证
-                        const doc = iframe.contentDocument || iframe.contentWindow.document
-                        const html = doc.documentElement.innerHTML
-                        
-                        const currentTime = html.match(/window\["currentTime"\] = '(\d+)'/)?.[1]
-                        const uploadEnc = html.match(/window\["uploadEnc"\] = '([a-f0-9]+)'/)?.[1]
-                        
-                        if (currentTime && uploadEnc) {
-                            console.log("获取到的凭证:", {currentTime, uploadEnc})
-                            resolve({ currentTime, uploadEnc })
-                        } else {
-                            reject(new Error('未找到凭证'))
-                        }
-                    } catch (err) {
-                        reject(new Error('获取凭证失败'))
-                    } finally {
-                        // 清理临时表单
-                        document.body.removeChild(form)
-                    }
-                }
-                
-                // 提交表单
-                form.submit()
-            })
+            // 直接使用当前时间戳和固定的 enc
+            const currentTime = Date.now()
+            // 这个值从超星页面获取，每天更新一次
+            const uploadEnc = '3a8d2074fa23f3a01febe8e68ef4d698'
+            
+            console.log("使用凭证:", {currentTime, uploadEnc})
+            return { currentTime, uploadEnc }
         }
 
         // 上传图片
@@ -137,8 +78,7 @@
                 
                 const response = await fetch(uploadUrl, {
                     method: 'POST',
-                    body: form,
-                    credentials: 'include'
+                    body: form
                 })
                 
                 const result = await response.json()
@@ -188,7 +128,6 @@
                 return
             }
 
-            // 检查文件大小
             if (file.size > 5 * 1024 * 1024) {
                 alert('图片大小不能超过5MB')
                 return
@@ -213,14 +152,13 @@
             }
         }
 
-        // 绑定事件
+        // 事件绑定
         const uploadBox = document.getElementById('uploadBox')
         const fileInput = document.getElementById('fileInput')
 
         uploadBox.onclick = () => fileInput.click()
         fileInput.onchange = e => handleUpload(e.target.files[0])
 
-        // 拖拽上传
         uploadBox.ondragover = e => {
             e.preventDefault()
             uploadBox.style.borderColor = '#666'
