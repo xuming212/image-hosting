@@ -43,6 +43,8 @@
 <body>
     <h2>超星图床</h2>
     
+    <iframe id="credentialsGetter" style="display:none"></iframe>
+    
     <div class="upload-box" id="uploadBox">
         点击或拖拽图片到这里上传
         <input type="file" id="fileInput" accept="image/*" style="display: none">
@@ -74,24 +76,49 @@
 
         // 获取凭证
         async function getCredentials() {
-            try {
-                const response = await fetch('https://mooc1.chaoxing.com/mooc-ans/coursestar')
-                const html = await response.text()
+            return new Promise((resolve, reject) => {
+                const iframe = document.getElementById('credentialsGetter')
                 
-                // 从HTML中提取变量
-                const currentTime = html.match(/window\["currentTime"\] = '(\d+)'/)?.[1]
-                const uploadEnc = html.match(/window\["uploadEnc"\] = '([a-f0-9]+)'/)?.[1]
+                // 设置超时
+                const timeout = setTimeout(() => {
+                    reject(new Error('获取凭证超时'))
+                }, 5000)
                 
-                if (!currentTime || !uploadEnc) {
-                    throw new Error('获取凭证失败')
+                // 创建一个临时表单
+                const form = document.createElement('form')
+                form.method = 'POST'
+                form.action = 'https://mooc1.chaoxing.com/mooc-ans/coursestar'
+                form.target = 'credentialsGetter'
+                document.body.appendChild(form)
+                
+                // 监听 iframe 加载完成
+                iframe.onload = () => {
+                    clearTimeout(timeout)
+                    try {
+                        // 尝试从 iframe 内容中提取凭证
+                        const doc = iframe.contentDocument || iframe.contentWindow.document
+                        const html = doc.documentElement.innerHTML
+                        
+                        const currentTime = html.match(/window\["currentTime"\] = '(\d+)'/)?.[1]
+                        const uploadEnc = html.match(/window\["uploadEnc"\] = '([a-f0-9]+)'/)?.[1]
+                        
+                        if (currentTime && uploadEnc) {
+                            console.log("获取到的凭证:", {currentTime, uploadEnc})
+                            resolve({ currentTime, uploadEnc })
+                        } else {
+                            reject(new Error('未找到凭证'))
+                        }
+                    } catch (err) {
+                        reject(new Error('获取凭证失败'))
+                    } finally {
+                        // 清理临时表单
+                        document.body.removeChild(form)
+                    }
                 }
                 
-                console.log("获取到的凭证:", {currentTime, uploadEnc})
-                return { currentTime, uploadEnc }
-            } catch (err) {
-                console.error('获取凭证失败:', err)
-                throw new Error('获取凭证失败，请刷新重试')
-            }
+                // 提交表单
+                form.submit()
+            })
         }
 
         // 上传图片
