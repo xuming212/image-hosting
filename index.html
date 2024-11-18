@@ -103,12 +103,12 @@
                 })
                 
                 const result = await response.json()
-                console.log("上传结果:", result)
+                console.log("上传响应:", result)
                 
                 if (result.state === 'SUCCESS') {
                     return result.url
                 } else {
-                    throw new Error(result.msg || result.error || '上传失败')
+                    throw new Error(`上传失败: ${result.error}\n详情: ${result.detail || '无'}`)
                 }
             } catch (err) {
                 console.error("上传失败:", err)
