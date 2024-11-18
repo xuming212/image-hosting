@@ -99,19 +99,32 @@
                 
                 const response = await fetch(WORKER_URL, {
                     method: 'POST',
-                    body: form
+                    body: form,
+                    headers: {
+                        'Accept': '*/*'
+                    }
                 })
                 
-                const result = await response.json()
-                console.log("上传响应:", result)
+                console.log("Worker响应状态:", response.status)
+                console.log("Worker响应头:", Object.fromEntries(response.headers))
                 
-                if (result.state === 'SUCCESS') {
+                const result = await response.json()
+                console.log("Worker响应体:", result)
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP错误: ${response.status} ${response.statusText}`)
+                }
+                
+                if (result.state === 'SUCCESS' && result.url) {
                     return result.url
                 } else {
-                    throw new Error(`上传失败: ${result.error}\n详情: ${result.detail || '无'}`)
+                    throw new Error(`上传失败: ${result.error || '未知错误'}\n详情: ${result.detail || '无'}`)
                 }
             } catch (err) {
                 console.error("上传失败:", err)
+                if (err instanceof TypeError) {
+                    console.error("网络错误:", err.message)
+                }
                 throw err
             }
         }
