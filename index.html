@@ -92,8 +92,15 @@
                     }
 
                     this.resultArea.innerHTML = '上传中...';
+                    
+                    // 构建完整的表单数据
                     const formData = new FormData();
-                    formData.append('upfile', file, file.name);
+                    formData.append('id', 'WU_FILE_0');
+                    formData.append('name', file.name);
+                    formData.append('type', file.type);
+                    formData.append('lastModifiedDate', new Date().toString());
+                    formData.append('size', file.size);
+                    formData.append('upfile', file, file.name);  // 确保这里是 'upfile'
 
                     const response = await fetch(config.workerUrl, {
                         method: 'POST',
