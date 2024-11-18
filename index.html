@@ -51,41 +51,53 @@
     <div id="history"></div>
 
     <script>
-        // 获取凭证函数 - 尝试多个代理
-        async function getCredentials() {
-            // 代理列表
-            const proxyUrls = [
-                'https://api.allorigins.win/raw?url=',
-                'https://api.codetabs.com/v1/proxy?quest=',
-                'https://corsproxy.io/?'
-            ]
-            
-            const targetUrl = 'https://mooc1.chaoxing.com/mooc-ans/coursestar'
-            
-            // 依次尝试每个代理
-            for (const proxyUrl of proxyUrls) {
-                try {
-                    console.log("尝试代理:", proxyUrl)
-                    
-                    const response = await fetch(proxyUrl + encodeURIComponent(targetUrl))
-                    const html = await response.text()
-                    
-                    // 从HTML中提取变量
-                    const currentTime = html.match(/window\["currentTime"\] = "(\d+)"/)?.[1]
-                    const uploadEnc = html.match(/window\["uploadEnc"\] = "([a-f0-9]+)"/)?.[1]
-                    
-                    console.log("提取的变量:", { currentTime, uploadEnc })
-                    
-                    if (currentTime && uploadEnc) {
-                        return { currentTime, uploadEnc }
-                    }
-                } catch (err) {
-                    console.error('代理失败:', proxyUrl, err)
-                    continue
+        // JSONP 工具函数
+        function jsonp(url) {
+            return new Promise((resolve, reject) => {
+                const callbackName = 'jsonp_' + Date.now()
+                window[callbackName] = (data) => {
+                    document.head.removeChild(script)
+                    delete window[callbackName]
+                    resolve(data)
                 }
+                
+                const script = document.createElement('script')
+                script.src = `${url}&callback=${callbackName}`
+                script.onerror = () => {
+                    document.head.removeChild(script)
+                    delete window[callbackName]
+                    reject(new Error('JSONP request failed'))
+                }
+                document.head.appendChild(script)
+            })
+        }
+
+        // 获取凭证
+        async function getCredentials() {
+            try {
+                // 使用 YQL 作为代理
+                const yqlUrl = 'https://query.yahooapis.com/v1/public/yql'
+                const query = `select * from html where url='https://mooc1.chaoxing.com/mooc-ans/coursestar'`
+                const url = `${yqlUrl}?q=${encodeURIComponent(query)}&format=json`
+                
+                const data = await jsonp(url)
+                const html = data.query.results.body
+                
+                // 从HTML中提取变量
+                const currentTime = html.match(/window\["currentTime"\] = "(\d+)"/)?.[1]
+                const uploadEnc = html.match(/window\["uploadEnc"\] = "([a-f0-9]+)"/)?.[1]
+                
+                console.log("提取的变量:", { currentTime, uploadEnc })
+                
+                if (!currentTime || !uploadEnc) {
+                    throw new Error('获取凭证失败')
+                }
+                
+                return { currentTime, uploadEnc }
+            } catch (err) {
+                console.error('获取凭证失败:', err)
+                throw new Error('获取凭证失败，请刷新重试')
             }
-            
-            throw new Error('获取凭证失败')
         }
 
         // 上传图片
