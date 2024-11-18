@@ -51,35 +51,41 @@
     <div id="history"></div>
 
     <script>
-        // 获取凭证
+        // 获取凭证函数 - 尝试多个代理
         async function getCredentials() {
-            try {
-                // 使用 cors-anywhere 代理
-                const proxyUrl = 'https://cors-anywhere.herokuapp.com/'
-                const targetUrl = 'https://mooc1.chaoxing.com/mooc-ans/coursestar'
-                
-                const response = await fetch(proxyUrl + targetUrl, {
-                    headers: {
-                        'Origin': 'https://mooc1.chaoxing.com'
+            // 代理列表
+            const proxyUrls = [
+                'https://api.allorigins.win/raw?url=',
+                'https://api.codetabs.com/v1/proxy?quest=',
+                'https://corsproxy.io/?'
+            ]
+            
+            const targetUrl = 'https://mooc1.chaoxing.com/mooc-ans/coursestar'
+            
+            // 依次尝试每个代理
+            for (const proxyUrl of proxyUrls) {
+                try {
+                    console.log("尝试代理:", proxyUrl)
+                    
+                    const response = await fetch(proxyUrl + encodeURIComponent(targetUrl))
+                    const html = await response.text()
+                    
+                    // 从HTML中提取变量
+                    const currentTime = html.match(/window\["currentTime"\] = "(\d+)"/)?.[1]
+                    const uploadEnc = html.match(/window\["uploadEnc"\] = "([a-f0-9]+)"/)?.[1]
+                    
+                    console.log("提取的变量:", { currentTime, uploadEnc })
+                    
+                    if (currentTime && uploadEnc) {
+                        return { currentTime, uploadEnc }
                     }
-                })
-                const html = await response.text()
-                
-                // 从HTML中提取变量
-                const currentTime = html.match(/window\["currentTime"\] = "(\d+)"/)?.[1]
-                const uploadEnc = html.match(/window\["uploadEnc"\] = "([a-f0-9]+)"/)?.[1]
-                
-                console.log("提取的变量:", { currentTime, uploadEnc })
-                
-                if (!currentTime || !uploadEnc) {
-                    throw new Error('获取凭证失败')
+                } catch (err) {
+                    console.error('代理失败:', proxyUrl, err)
+                    continue
                 }
-                
-                return { currentTime, uploadEnc }
-            } catch (err) {
-                console.error('获取凭证失败:', err)
-                throw new Error('获取凭证失败，请刷新重试')
             }
+            
+            throw new Error('获取凭证失败')
         }
 
         // 上传图片
