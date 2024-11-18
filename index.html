@@ -4,11 +4,6 @@
     <meta charset="UTF-8">
     <meta name="referrer" content="no-referrer">
     <title>超星图床</title>
-    <script src="https://cdn.bootcdn.net/ajax/libs/jquery/1.10.2/jquery.min.js"></script>
-    <script src="https://cdn.bootcdn.net/ajax/libs/webuploader/0.1.1/webuploader.min.js"></script>
-    <link href="https://cdn.bootcdn.net/ajax/libs/webuploader/0.1.1/webuploader.css" rel="stylesheet">
-    <script src="https://mooc1.chaoxing.com/mooc-ans/js/editor20150812/ueditor.config.js?v=2023-0904-2027"></script>
-    <script src="https://mooc1.chaoxing.com/mooc-ans/js/editor20150812/ueditor.all.min.js?v=2024-0105-1810"></script>
     <style>
         body {
             max-width: 800px;
@@ -48,47 +43,64 @@
 <body>
     <h2>超星图床</h2>
     
-    <div id="uploader">
-        <div id="filePicker">选择图片</div>
+    <div class="upload-box" id="uploadBox">
+        点击或拖拽图片到这里上传
+        <input type="file" id="fileInput" accept="image/*" style="display: none">
     </div>
     <div id="result"></div>
     <div id="history"></div>
 
     <script>
-        var uploader = WebUploader.create({
-            auto: true,
-            swf: 'https://cdn.bootcdn.net/ajax/libs/webuploader/0.1.1/Uploader.swf',
-            server: function() {
-                const currentTime = Date.now()
-                const uploadEnc = '36f786d'
-                return `https://mooc-upload-ans.chaoxing.com/ueditorupload/upload-image?uid=&enc2=${uploadEnc}&t=${currentTime}&encode=utf-8`
-            },
-            pick: '#filePicker',
-            accept: {
-                title: 'Images',
-                extensions: 'gif,jpg,jpeg,bmp,png',
-                mimeTypes: 'image/*'
-            }
-        })
+        // Worker URL 配置
+        const WORKER_URL = 'https://chaoxing-upload.a212883851.workers.dev'
 
-        uploader.on('uploadSuccess', function(file, response) {
-            if (response.url) {
-                const result = document.getElementById('result')
+        // 上传图片
+        async function uploadImage(file) {
+            try {
+                const form = new FormData()
+                form.append('upfile', file)
+                
+                const response = await fetch(WORKER_URL, {
+                    method: 'POST',
+                    body: form
+                })
+                
+                const result = await response.json()
+                console.log("上传结果:", result)
+                
+                if (result.state === 'SUCCESS') {
+                    return result.url
+                } else {
+                    throw new Error(result.msg || result.error || '上传失败')
+                }
+            } catch (err) {
+                console.error("上传失败:", err)
+                throw err
+            }
+        }
+
+        // 处理上传
+        async function handleUpload(file) {
+            if (!file) return
+            
+            const result = document.getElementById('result')
+            result.innerHTML = '<div>上传中...</div>'
+            
+            try {
+                const url = await uploadImage(file)
                 result.innerHTML = `
-                    <img src="${response.url}" class="preview">
+                    <img src="${url}" class="preview">
                     <div class="url-box">
-                        <input value="${response.url}" readonly onclick="this.select()">
+                        <input value="${url}" readonly onclick="this.select()">
                     </div>
                 `
-                saveHistory(response.url)
+                saveHistory(url)
+            } catch (err) {
+                result.innerHTML = `<div style="color: red;">❌ ${err.message}</div>`
             }
-        })
+        }
 
-        uploader.on('uploadError', function(file) {
-            const result = document.getElementById('result')
-            result.innerHTML = '<div style="color: red;">❌ 上传失败</div>'
-        })
-
+        // 保存历史记录
         function saveHistory(url) {
             const history = JSON.parse(localStorage.getItem('uploadHistory') || '[]')
             history.unshift({
@@ -99,6 +111,7 @@
             showHistory()
         }
 
+        // 显示历史记录
         function showHistory() {
             const history = JSON.parse(localStorage.getItem('uploadHistory') || '[]')
             const html = history.map(item => `
@@ -113,64 +126,40 @@
             document.getElementById('history').innerHTML = html
         }
 
-        showHistory()
+        // 初始化上传事件
+        const uploadBox = document.getElementById('uploadBox')
+        const fileInput = document.getElementById('fileInput')
 
-        // 获取凭证
-        async function getCredentials() {
-            try {
-                const response = await fetch('https://mooc1.chaoxing.com/mooc-ans/coursestar')
-                const html = await response.text()
-                
-                const currentTime = html.match(/window\["currentTime"\] = '(\d+)'/)?.[1]
-                const uploadEnc = html.match(/window\["uploadEnc"\] = '([a-f0-9]+)'/)?.[1]
-                
-                if (!currentTime || !uploadEnc) {
-                    throw new Error('获取凭证失败')
-                }
-                
-                console.log("获取凭证成功:", {currentTime, uploadEnc})
-                return { currentTime, uploadEnc }
-            } catch (err) {
-                console.error("获取凭证失败:", err)
-                throw err
+        // 点击上传
+        uploadBox.onclick = () => fileInput.click()
+        fileInput.onchange = e => handleUpload(e.target.files[0])
+
+        // 拖拽上传
+        uploadBox.ondragover = e => {
+            e.preventDefault()
+            e.stopPropagation()
+            uploadBox.style.borderColor = '#000'
+        }
+        
+        uploadBox.ondragleave = e => {
+            e.preventDefault()
+            e.stopPropagation()
+            uploadBox.style.borderColor = '#ccc'
+        }
+        
+        uploadBox.ondrop = e => {
+            e.preventDefault()
+            e.stopPropagation()
+            uploadBox.style.borderColor = '#ccc'
+            
+            const file = e.dataTransfer.files[0]
+            if (file && file.type.startsWith('image/')) {
+                handleUpload(file)
             }
         }
 
-        // 上传图片
-        async function uploadImage(file) {
-            const { currentTime, uploadEnc } = await getCredentials()
-            
-            return new Promise((resolve, reject) => {
-                const form = new FormData()
-                form.append('upfile', file)
-                
-                const xhr = new XMLHttpRequest()
-                xhr.open('POST', `https://mooc-upload-ans.chaoxing.com/ueditorupload/upload-image?uid=&enc2=${uploadEnc}&t=${currentTime}&encode=utf-8`)
-                
-                xhr.onload = function() {
-                    try {
-                        const response = JSON.parse(xhr.responseText)
-                        console.log("上传响应:", response)
-                        if (response.state === 'SUCCESS') {
-                            resolve(response.url)
-                        } else {
-                            reject(new Error(response.msg || '上传失败'))
-                        }
-                    } catch (err) {
-                        reject(err)
-                    }
-                }
-                
-                xhr.onerror = function() {
-                    reject(new Error('网络错误'))
-                }
-                
-                xhr.setRequestHeader('Origin', 'https://mooc1.chaoxing.com')
-                xhr.setRequestHeader('Referer', 'https://mooc1.chaoxing.com/mooc-ans/coursestar')
-                
-                xhr.send(form)
-            })
-        }
+        // 显示历史记录
+        showHistory()
     </script>
 </body>
 </html>
