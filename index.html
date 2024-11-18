@@ -11,7 +11,6 @@
             padding: 0 20px;
             font-family: system-ui, -apple-system, sans-serif;
         }
-        
         .upload-area {
             border: 2px dashed #ccc;
             padding: 20px;
@@ -19,26 +18,22 @@
             margin: 20px 0;
             cursor: pointer;
         }
-        
         #fileInput {
             display: none;
         }
-        
         .url-box {
             margin: 10px 0;
         }
-        
         .url-box input {
-            width: 100%;
+            width: calc(100% - 100px);
             padding: 8px;
             border: 1px solid #ddd;
+            margin-right: 10px;
         }
-        
         .preview-image {
             max-width: 100%;
             margin: 10px 0;
         }
-        
         .error {
             color: red;
         }
@@ -46,41 +41,34 @@
 </head>
 <body>
     <h1>超星图床</h1>
-    
     <div class="upload-area" id="uploadArea">
         <p>点击或拖拽图片到这里上传</p>
         <input type="file" id="fileInput" accept="image/*">
     </div>
-    
     <div id="resultArea"></div>
-
     <script>
         const config = {
-            workerUrl: 'https://chaoxing-upload.a212883851.workers.dev'
+            workerUrl: 'https://chaoxing-upload.a212883851.workers.dev/' // 替换为你的 Cloudflare Worker 地址
         };
-        
+
         class ImageUploader {
             constructor() {
                 this.uploadArea = document.getElementById('uploadArea');
                 this.fileInput = document.getElementById('fileInput');
                 this.resultArea = document.getElementById('resultArea');
-                
                 this.initEvents();
             }
 
             initEvents() {
                 this.uploadArea.onclick = () => this.fileInput.click();
                 this.fileInput.onchange = e => this.handleFiles(e.target.files);
-                
                 this.uploadArea.ondragover = e => {
                     e.preventDefault();
                     this.uploadArea.style.borderColor = '#4CAF50';
                 };
-                
                 this.uploadArea.ondragleave = () => {
                     this.uploadArea.style.borderColor = '#ccc';
                 };
-                
                 this.uploadArea.ondrop = e => {
                     e.preventDefault();
                     this.uploadArea.style.borderColor = '#ccc';
@@ -91,21 +79,16 @@
             async handleFiles(files) {
                 const file = files[0];
                 if (!file) return;
-
                 try {
                     if (!file.type.startsWith('image/')) {
                         throw new Error('只支持图片文件');
                     }
 
                     this.resultArea.innerHTML = '<div style="color:#666">上传中...</div>';
-                    
+
+                    // 上传图片
                     const formData = new FormData();
-                    formData.append('id', 'WU_FILE_0');
-                    formData.append('name', file.name);
-                    formData.append('type', file.type);
-                    formData.append('lastModifiedDate', new Date().toString());
-                    formData.append('size', file.size);
-                    formData.append('upfile', file);
+                    formData.append('file', file);
 
                     const response = await fetch(config.workerUrl, {
                         method: 'POST',
@@ -113,7 +96,7 @@
                     });
 
                     const result = await response.json();
-                    
+
                     if (!result.success) {
                         throw new Error(result.message || '上传失败');
                     }
@@ -122,7 +105,7 @@
                         <img src="${result.url}" class="preview-image" alt="已上传的图片">
                         <div class="url-box">
                             <input type="text" value="${result.url}" readonly onclick="this.select()">
-                            <button onclick="navigator.clipboard.writeText('${result.url}').then(() => this.textContent = '已复制!').catch(e => console.error(e))" style="margin-top:10px;padding:5px 10px;cursor:pointer">复制链接</button>
+                            <button onclick="navigator.clipboard.writeText('${result.url}').then(() => this.textContent = '已复制!').catch(e => console.error(e))">复制链接</button>
                         </div>
                     `;
                 } catch (error) {
@@ -135,4 +118,4 @@
         new ImageUploader();
     </script>
 </body>
-</html> 
+</html>
