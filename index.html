@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="referrer" content="no-referrer">
+    <title>超星图床</title>
+    <style>
+        body {
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 0 20px;
+            font-family: system-ui;
+        }
+        .upload-box {
+            border: 2px dashed #ccc;
+            padding: 20px;
+            text-align: center;
+            margin-bottom: 20px;
+            cursor: pointer;
+        }
+        .url-box {
+            margin: 10px 0;
+        }
+        .url-box input {
+            width: 100%;
+            padding: 8px;
+            box-sizing: border-box;
+        }
+        .preview {
+            max-width: 100%;
+            margin: 10px 0;
+        }
+        #history {
+            margin-top: 20px;
+        }
+        .history-item {
+            margin: 10px 0;
+            padding: 10px;
+            border: 1px solid #eee;
+        }
+    </style>
+</head>
+<body>
+    <h2>超星图床</h2>
+    <div class="upload-box" id="uploadBox">
+        点击或拖拽图片到这里上传
+        <input type="file" id="fileInput" accept="image/*" style="display: none">
+    </div>
+    <div id="result"></div>
+    <div id="history"></div>
+
+    <script>
+        // 使用多个备用代理
+        const PROXY_URLS = [
+            'https://api.allorigins.win/raw?url=',
+            'https://corsproxy.io/?',
+            'https://cors-anywhere.herokuapp.com/'
+        ]
+        
+        let currentProxyIndex = 0
+
+        async function fetchWithProxy(url, options = {}) {
+            const maxRetries = PROXY_URLS.length
+            let lastError
+
+            for (let i = 0; i < maxRetries; i++) {
+                try {
+                    const proxyUrl = PROXY_URLS[currentProxyIndex] + encodeURIComponent(url)
+                    const response = await fetch(proxyUrl, options)
+                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`)
+                    return response
+                } catch (err) {
+                    lastError = err
+                    currentProxyIndex = (currentProxyIndex + 1) % PROXY_URLS.length
+                }
+            }
+            throw lastError
+        }
+
+        async function uploadImage(file) {
+            try {
+                // 1. 获取上传凭证
+                const html = await fetchWithProxy('https://mooc1.chaoxing.com/mooc-ans/coursestar')
+                    .then(r => r.text())
+
+                const currentTime = html.match(/window\["currentTime"\] = "(\d+)"/)?.[1]
+                const uploadEnc = html.match(/window\["uploadEnc"\] = "([a-f0-9]+)"/)?.[1]
+
+                if (!currentTime || !uploadEnc) {
+                    throw new Error('获取上传凭证失败')
+                }
+
+                // 2. 上传图片
+                const form = new FormData()
+                form.append('upfile', file)
+
+                const uploadUrl = `https://mooc-upload-ans.chaoxing.com/ueditorupload/upload-image?uid&enc2=${uploadEnc}&t=${currentTime}&encode=utf-8`
+
+                // 上传时不使用代理，直接上传
+                const response = await fetch(uploadUrl, {
+                    method: 'POST',
+                    body: form,
+                    headers: {
+                        'Origin': 'https://mooc1.chaoxing.com',
+                        'Referer': 'https://mooc1.chaoxing.com/'
+                    }
+                }).then(r => r.json())
+
+                if (!response.url) {
+                    throw new Error('上传失败，请重试')
+                }
+
+                // 3. 返回直链
+                const objectId = response.url
+                return `https://p.ananas.chaoxing.com/star3/origin/${objectId}.${file.name.split('.').pop()}`
+            } catch (err) {
+                console.error('上传失败:', err)
+                throw new Error(err.message || '网络错误，请重试')
+            }
+        }
+
+        // 保存历史记录
+        function saveHistory(url) {
+            const history = JSON.parse(localStorage.getItem('uploadHistory') || '[]')
+            history.unshift({
+                url,
+                time: new Date().toLocaleString()
+            })
+            localStorage.setItem('uploadHistory', JSON.stringify(history.slice(0, 10)))
+            showHistory()
+        }
+
+        // 显示历史记录
+        function showHistory() {
+            const history = JSON.parse(localStorage.getItem('uploadHistory') || '[]')
+            const html = history.map(item => `
+                <div class="history-item">
+                    <img src="${item.url}" class="preview">
+                    <div class="url-box">
+                        <input value="${item.url}" readonly onclick="this.select()">
+                    </div>
+                    <small>上传时间: ${item.time}</small>
+                </div>
+            `).join('')
+            document.getElementById('history').innerHTML = html
+        }
+
+        // 处理上传
+        async function handleUpload(file) {
+            if (!file || !file.type.startsWith('image/')) {
+                alert('请选择图片文件')
+                return
+            }
+
+            // 检查文件大小
+            if (file.size > 5 * 1024 * 1024) {
+                alert('图片大小不能超过5MB')
+                return
+            }
+
+            const result = document.getElementById('result')
+            result.innerHTML = '<div style="color: blue;">上传中，请稍候...</div>'
+
+            try {
+                const url = await uploadImage(file)
+                if (url) {
+                    result.innerHTML = `
+                        <img src="${url}" class="preview">
+                        <div class="url-box">
+                            <input value="${url}" readonly onclick="this.select()">
+                        </div>
+                    `
+                    saveHistory(url)
+                }
+            } catch (err) {
+                result.innerHTML = `<div style="color: red;">❌ ${err.message}</div>`
+            }
+        }
+
+        // 绑定事件
+        const uploadBox = document.getElementById('uploadBox')
+        const fileInput = document.getElementById('fileInput')
+
+        uploadBox.onclick = () => fileInput.click()
+        fileInput.onchange = e => handleUpload(e.target.files[0])
+
+        // 拖拽上传
+        uploadBox.ondragover = e => {
+            e.preventDefault()
+            uploadBox.style.borderColor = '#666'
+        }
+        uploadBox.ondragleave = e => {
+            e.preventDefault()
+            uploadBox.style.borderColor = '#ccc'
+        }
+        uploadBox.ondrop = e => {
+            e.preventDefault()
+            uploadBox.style.borderColor = '#ccc'
+            handleUpload(e.dataTransfer.files[0])
+        }
+
+        // 显示历史记录
+        showHistory()
+    </script>
+</body>
+</html>
