@@ -75,24 +75,18 @@
         // 获取凭证
         async function getCredentials() {
             try {
-                // 使用 YQL 作为代理
-                const yqlUrl = 'https://query.yahooapis.com/v1/public/yql'
-                const query = `select * from html where url='https://mooc1.chaoxing.com/mooc-ans/coursestar'`
-                const url = `${yqlUrl}?q=${encodeURIComponent(query)}&format=json`
-                
-                const data = await jsonp(url)
-                const html = data.query.results.body
+                const response = await fetch('https://mooc1.chaoxing.com/mooc-ans/coursestar')
+                const html = await response.text()
                 
                 // 从HTML中提取变量
-                const currentTime = html.match(/window\["currentTime"\] = "(\d+)"/)?.[1]
-                const uploadEnc = html.match(/window\["uploadEnc"\] = "([a-f0-9]+)"/)?.[1]
-                
-                console.log("提取的变量:", { currentTime, uploadEnc })
+                const currentTime = html.match(/window\["currentTime"\] = '(\d+)'/)?.[1]
+                const uploadEnc = html.match(/window\["uploadEnc"\] = '([a-f0-9]+)'/)?.[1]
                 
                 if (!currentTime || !uploadEnc) {
                     throw new Error('获取凭证失败')
                 }
                 
+                console.log("获取到的凭证:", {currentTime, uploadEnc})
                 return { currentTime, uploadEnc }
             } catch (err) {
                 console.error('获取凭证失败:', err)
@@ -112,6 +106,8 @@
                 
                 const uploadUrl = `https://mooc-upload-ans.chaoxing.com/ueditorupload/upload-image?uid=&enc2=${uploadEnc}&t=${currentTime}&encode=utf-8`
                 
+                console.log("开始上传...", uploadUrl)
+                
                 const response = await fetch(uploadUrl, {
                     method: 'POST',
                     body: form,
@@ -119,6 +115,7 @@
                 })
                 
                 const result = await response.json()
+                console.log("上传结果:", result)
                 
                 if (result.state !== 'SUCCESS') {
                     throw new Error(result.msg || '上传失败')
