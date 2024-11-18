@@ -89,11 +89,12 @@
         async function uploadImage(file) {
             try {
                 const form = new FormData()
-                form.append('upfile', file)
+                form.append('upfile', file, file.name)
                 
                 console.log("开始上传...", {
                     fileSize: file.size,
-                    fileType: file.type
+                    fileType: file.type,
+                    fileName: file.name
                 })
                 
                 const response = await fetch(WORKER_URL, {
