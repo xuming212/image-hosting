@@ -78,7 +78,14 @@
                 
                 const response = await fetch(uploadUrl, {
                     method: 'POST',
-                    body: form
+                    body: form,
+                    headers: {
+                        'Accept': 'application/json',
+                        'Origin': 'https://mooc1.chaoxing.com',
+                        'Referer': 'https://mooc1.chaoxing.com/mooc-ans/coursestar'
+                    },
+                    credentials: 'include',
+                    mode: 'cors'
                 })
                 
                 const result = await response.json()
