@@ -93,7 +93,7 @@
 
                     this.resultArea.innerHTML = '上传中...';
                     const formData = new FormData();
-                    formData.append('upfile', file);
+                    formData.append('upfile', file, file.name);
 
                     const response = await fetch(config.workerUrl, {
                         method: 'POST',
@@ -105,14 +105,19 @@
                         throw new Error(result.message);
                     }
 
+                    if (!result.url) {
+                        throw new Error('上传成功但未获得图片链接');
+                    }
+
                     this.resultArea.innerHTML = `
-                        <img src="${result.url}" class="preview-image">
+                        <img src="${result.url}" class="preview-image" alt="已上传的图片">
                         <div class="url-box">
                             <input type="text" value="${result.url}" readonly onclick="this.select()">
                         </div>
                     `;
                 } catch (error) {
                     this.resultArea.innerHTML = `<div class="error">${error.message}</div>`;
+                    console.error('上传错误:', error);
                 }
             }
         }
