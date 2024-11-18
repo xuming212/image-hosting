@@ -71,8 +71,9 @@
         // 检查文件
         function checkFile(file) {
             // 检查文件类型
-            if (!file.type.startsWith('image/')) {
-                throw new Error('只能上传图片文件')
+            const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
+            if (!allowedTypes.includes(file.type)) {
+                throw new Error('只支持 JPG、PNG、GIF、WEBP 格式的图片')
             }
             
             // 检查文件大小 (10MB)
