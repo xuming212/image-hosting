@@ -17,6 +17,12 @@
             text-align: center;
             margin-bottom: 20px;
             cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .upload-box.loading {
+            opacity: 0.5;
+            pointer-events: none;
+            border-color: #666;
         }
         .url-box {
             margin: 10px 0;
@@ -38,6 +44,14 @@
             padding: 10px;
             border: 1px solid #eee;
         }
+        .loading-text {
+            color: #666;
+            font-style: italic;
+        }
+        .error-text {
+            color: red;
+            font-weight: bold;
+        }
     </style>
 </head>
 <body>
@@ -54,11 +68,32 @@
         // Worker URL 配置
         const WORKER_URL = 'https://chaoxing-upload.a212883851.workers.dev'
 
+        // 检查文件
+        function checkFile(file) {
+            // 检查文件类型
+            if (!file.type.startsWith('image/')) {
+                throw new Error('只能上传图片文件')
+            }
+            
+            // 检查文件大小 (10MB)
+            const maxSize = 10 * 1024 * 1024
+            if (file.size > maxSize) {
+                throw new Error('图片大小不能超过10MB')
+            }
+            
+            return true
+        }
+
         // 上传图片
         async function uploadImage(file) {
             try {
                 const form = new FormData()
                 form.append('upfile', file)
+                
+                console.log("开始上传...", {
+                    fileSize: file.size,
+                    fileType: file.type
+                })
                 
                 const response = await fetch(WORKER_URL, {
                     method: 'POST',
@@ -84,9 +119,16 @@
             if (!file) return
             
             const result = document.getElementById('result')
-            result.innerHTML = '<div>上传中...</div>'
+            const uploadBox = document.getElementById('uploadBox')
             
             try {
+                // 检查文件
+                checkFile(file)
+                
+                // 显示加载状态
+                result.innerHTML = '<div class="loading-text">上传中...</div>'
+                uploadBox.classList.add('loading')
+                
                 const url = await uploadImage(file)
                 result.innerHTML = `
                     <img src="${url}" class="preview">
@@ -96,7 +138,10 @@
                 `
                 saveHistory(url)
             } catch (err) {
-                result.innerHTML = `<div style="color: red;">❌ ${err.message}</div>`
+                result.innerHTML = `<div class="error-text">❌ ${err.message}</div>`
+            } finally {
+                // 恢复上传框状态
+                uploadBox.classList.remove('loading')
             }
         }
 
